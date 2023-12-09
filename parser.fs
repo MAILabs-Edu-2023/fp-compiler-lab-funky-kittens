@@ -29,20 +29,27 @@ let funof = function
 | ">" -> (function [Int(a);Int(b)] -> if b>a then Int(1) else Int(0))
 | "<" -> (function [Int(a);Int(b)] -> if b<a then Int(1) else Int(0))
 | "<=" -> (function [Int(a);Int(b)] -> if b<=a then Int(1) else Int(0))
-| "print" -> (function  [expr.String(a); _] -> printfn "%s" a; None) // not work
+| "print" -> (function  [expr.String(a)] -> printfn "%s" a; None) // not work
+
+
+let funpars = function
+| "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
+| "print" -> 1
 
 
 let rec eval exp env =
     match exp with
     | Int(n) -> Int(n)
+    | expr.String(n) -> expr.String(n)
+    | None -> None
     | Var(x) -> Map.find x env
     | Lam(id,ex) -> Closure(exp,env)
     | App(ex1,ex2) -> apply (eval ex1 env) (eval ex2 env)
-    | PFunc(id) -> Op(id,3,[])
+    | PFunc(id) -> Op(id,(funpars id),[])
     | Cond(e0,e1,e2) ->
         match eval e0 env with
             | Int(0) -> eval e2 env
-            | String(""), None -> eval e2 env
+            | expr.String("") | None -> eval e2 env
             | _ -> eval e1 env
     | Let(id,e1,e2) ->
         let e1' = eval e1 env in eval e2 (Map.add id e1' env)
@@ -128,8 +135,8 @@ let tokenize text =
 let parse tokens = 
     let rec parse' = function
         // | CloseSection :: rem -> acc, rem
-        | Token.Number(s) :: Action(func) :: Token.Number(s2) :: _ when func = "+" ->
-            expr.App(expr.App(expr.PFunc(func),expr.Int(s |> int)),expr.Int(s2 |> int))
+        | Action(func) :: Token.String(s2) :: _ when func = "print" ->
+            App(PFunc(func), expr.String(s2))
        
         // | Action(func) :: t when func == "func" = 
         //     let fname = match List.head t with 
