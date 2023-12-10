@@ -135,7 +135,34 @@ let tokenize text =
     tokenize' [] text
 
 let parse tokens = 
+    let rec parseSection = function
+        | CloseSection :: tail ->
+            None, tail
+        | CloseBracket :: tail ->
+            None, tail
+        | Action(func) :: tail ->
+            let app, rem = parseSection tail
+            printfn "%s" func
+            App(PFunc(func), app), rem
+        | Number(s) :: tail ->
+            let app, rem = parseSection tail
+            let number = Int(s |> int)
+            match app with
+                | None -> number, rem
+                | _ -> App(app, number), rem
+        | a :: tail -> 
+            printfn "%A" a
+            None, tail
+
     let rec parseMain = function
+        | Action(iffunc) :: OpenBracket :: tail  when iffunc = "if" ->
+            let condApp, rem = parseSection tail
+            let remNoBr = List.tail (List.tail rem)
+            let trueApp, remNoTrue = parseSection remNoBr
+            let remNoBrNoBr = List.tail (List.tail remNoTrue)
+            let falseApp, _ = parseSection remNoBrNoBr
+            Cond(condApp, trueApp, falseApp)
+
         | Action(func) :: String(name) :: String(arg) :: String(lambda) :: Number(app) :: _ when func = "func" ->
             LetRec(name,
                 Lam(arg,
