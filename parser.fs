@@ -21,15 +21,15 @@ and
   env = Map<id,expr>
 
 let funof = function
-| "+" -> (function [Int(a);Int(b)] -> Int(b+a))
-| "-" -> (function [Int(a);Int(b)] -> Int(b-a))
-| "*" -> (function [Int(a);Int(b)] -> Int(b*a))
-| "/" -> (function [Int(a);Int(b)] -> Int(b/a))
-| "=" -> (function [Int(a);Int(b)] -> if b=a then Int(1) else Int(0))
-| ">" -> (function [Int(a);Int(b)] -> if b>a then Int(1) else Int(0))
-| ">=" -> (function [Int(a);Int(b)] -> if b>=a then Int(1) else Int(0))
-| "<" -> (function [Int(a);Int(b)] -> if b<a then Int(1) else Int(0))
-| "<=" -> (function [Int(a);Int(b)] -> if b<=a then Int(1) else Int(0))
+| "+" -> (function [Int(a);Int(b)] -> Int(a+b))
+| "-" -> (function [Int(a);Int(b)] -> Int(a-b))
+| "*" -> (function [Int(a);Int(b)] -> Int(a*b))
+| "/" -> (function [Int(a);Int(b)] -> Int(a/b))
+| "=" -> (function [Int(a);Int(b)] -> if a=b then Int(1) else Int(0))
+| ">" -> (function [Int(a);Int(b)] -> if a>b then Int(1) else Int(0))
+| ">=" -> (function [Int(a);Int(b)] -> if a>=b then Int(1) else Int(0))
+| "<" -> (function [Int(a);Int(b)] -> if a<b then Int(1) else Int(0))
+| "<=" -> (function [Int(a);Int(b)] -> if a<=b then Int(1) else Int(0))
 | "print" -> (function [expr.String(a)] -> printfn "%s" a; None)
 | "printint" -> (function [expr.Int(a)] -> printfn "%d" a; None)
 | _ -> (function [] -> None)
@@ -37,6 +37,10 @@ let funof = function
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
 | "print" | "printint" | _ -> 1
+
+let keyword = function
+| "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" | "print" | "printint" | "if" | "func" -> true
+| _ -> false
 
 let rec eval exp env =
     match exp with
@@ -135,6 +139,36 @@ let tokenize text =
     tokenize' [] text
 
 let parse tokens = 
+    let rec parseSection = function
+        | CloseSection :: tail ->
+            None, tail
+        | CloseBracket :: tail ->
+            None, tail
+        | Action(func) :: tail when keyword func ->
+            let app, rem = parseSection tail
+            App(PFunc(func), app), rem
+        | Action(func) :: tail when func = "fact" ->
+            let app, rem = parseSection tail
+            let var = Var(func)
+            match app with
+                | None -> var, rem
+                | _ -> App(var, app), rem
+        | Action(func) :: tail ->
+            let app, rem = parseSection tail
+            let var = Var(func)
+            match app with
+                | None -> var, rem
+                | _ -> App(app, var), rem
+        | Number(s) :: tail ->
+            let app, rem = parseSection tail
+            let number = Int(s |> int)
+            match app with
+                | None -> number, rem
+                | _ -> App(app, number), rem
+        | head :: tail -> 
+            printfn "incompt %A" head
+            None, tail
+
     let rec parseExpr = function
         | Action(var) :: Action(op) :: Action(func) :: Action(var2) :: Action(op2) :: Number(num) :: tail ->
             App(
@@ -149,13 +183,15 @@ let parse tokens =
             ), tail
 
     let rec parseCond = function
-        | Action(func) :: Action(left) :: Action(cond) :: Number(right) :: Action(ifBranch) :: tail when func = "if" ->
-            let elseBranch, rest = parseExpr tail
+        | Action(func) :: OpenBracket :: tail when func = "if" ->
+            let cond, restBody = parseSection tail
+            let ifBranch, restElse = parseSection (List.tail restBody)
+            let elseBranch, restTail = parseSection (List.tail restElse)
             Cond(
-                App(App(PFunc(cond),Var(left)),Int(right |> int)),
-                Var(ifBranch),
+                cond,
+                ifBranch,
                 elseBranch
-            ), rest
+            ), restTail
 
     let rec parseMain = function
         | Action(func) :: Action(name) :: Action(arg) :: tail when func = "func" ->
