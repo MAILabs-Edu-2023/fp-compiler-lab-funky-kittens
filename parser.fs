@@ -21,20 +21,19 @@ and
   env = Map<id,expr>
 
 let funof = function
-| "+" -> (function [Int(a);Int(b)] -> Int(a+b))
+| "+" -> (function [Int(a);Int(b)] -> Int(b+a))
 | "-" -> (function [Int(a);Int(b)] -> Int(b-a))
-| "*" -> (function [Int(a);Int(b)] -> Int(a*b))
+| "*" -> (function [Int(a);Int(b)] -> Int(b*a))
 | "/" -> (function [Int(a);Int(b)] -> Int(b/a))
-| "=" -> (function [Int(a);Int(b)] -> if a=b then Int(1) else Int(0))
+| "=" -> (function [Int(a);Int(b)] -> if b=a then Int(1) else Int(0))
 | ">" -> (function [Int(a);Int(b)] -> if b>a then Int(1) else Int(0))
+| ">=" -> (function [Int(a);Int(b)] -> if b>=a then Int(1) else Int(0))
 | "<" -> (function [Int(a);Int(b)] -> if b<a then Int(1) else Int(0))
 | "<=" -> (function [Int(a);Int(b)] -> if b<=a then Int(1) else Int(0))
 | "print" -> (function  [expr.String(a)] -> printfn "%s" a; None)
 | "printint" -> (function  [expr.Int(a)] -> printfn "%d" a; None)
 | "func" -> (function  [String(a)] -> Var(a))
 | "return" -> (function  [Int(a)] -> Int(a))
-
-
 
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
@@ -61,7 +60,7 @@ let rec eval exp env =
 and apply e1 e2 =
     match e1 with
     | Closure(Lam(v,e),env) -> eval e (Map.add v e2 env)
-    | RClosure(Lam(v,e),env, id) -> eval e (Map.add v e2 (Map.add id e1 env))
+    | RClosure(Lam(v,e),env,id) -> eval e (Map.add v e2 (Map.add id e1 env))
     | Op(id,n,args) ->
         if n=1 then (funof id)(e2::args)
         else Op(id,n-1,e2::args)
@@ -72,17 +71,18 @@ eval (App(Lam("x",Var("x")),Int(5))) Map.empty
 
 eval (App(Lam("x",App(App(PFunc("*"),Var("x")),Var("x"))),Int(5))) Map.empty
 
+let example = 
+    App(
+        PFunc("printint"),
+        LetRec("fact",
+            Lam("x",
+                Cond(App(App(PFunc("<="),Var("x")),Int(1)),
+                Var("x"),
+                App(App(PFunc("*"),Var("x")),
+                    App(Var("fact"),App(App(PFunc("-"),Var("x")),Int(1)))))),
+            App(Var("fact"),Int(5))))
 
-let P = 
-   LetRec("fact",
-     Lam("x",
-       Cond(App(App(PFunc("<="),Var("x")),Int(1)),
-         Var("x"),
-         App(App(PFunc("*"),Var("x")),
-            App(Var("fact"),App(App(PFunc("-"),Var("x")),Int(1)))))),
-     App(Var("fact"),Int(5)))
-
-eval P Map.empty
+eval example Map.empty
 
 type Token =
     | String of string
@@ -137,33 +137,22 @@ let tokenize text =
 
 let parse tokens = 
     let rec parseFunction = function
-    | Action(func) :: Token.Number(x) :: CloseSection :: _ when func = "return" ->
-        x |> int
+    | Action(func) :: Token.Number(x) :: CloseSection :: tail when func = "return" ->
+        x |> int, tail
     | _ -> 
-        0
+        0, []
 
     let rec parseMain = function
-        | Token.Number(s) :: Action(func) :: Token.Number(s2) :: tail when func = "+" ->
-           App(App(expr.PFunc(func),expr.Int(s |> int)),expr.Int(s2 |> int)) :: parseMain tail
-        | Action(func) :: Token.String(s2) :: tail when func = "print" ->
-            App(PFunc(func), expr.String(s2)) :: parseMain tail
-        | Action(func) :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: tail  when func = "printint" ->
-            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parseMain tail
-        | Action(func) :: OpenBracket :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: CloseBracket :: tail when func = "printint" ->
-            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parseMain tail
-        | Action(func) :: String(fname) :: OpenSection :: body when func = "func" ->
-            // let fname = match List.head t with 
-            //     | Action(fname) -> fname
-            //     | _ -> raise("aaaa")
-            // let t' = List.tail t
-            // if List.head t' != Token.OpenBracket then raise("aaaaa")
-            let t = parseFunction body
-            App(PFunc("print"), expr.String(t |> string)) :: []
+        | Action(func) :: tail ->
+            App(PFunc(func), parseMain tail)
+        | Number(s) :: [] ->
+            Int(s |> int)
+        | Number(s) :: tail ->
+            App(parseMain tail, Int(s |> int))
         | _ -> 
-            None :: []
+            None
 
     parseMain tokens
-
 
 let text = System.IO.File.ReadAllText("test.fgo")
 let tokens = tokenize (text |> Seq.toList)
@@ -171,6 +160,4 @@ tokens
 let parsed = parse (tokens |> Seq.toList)
 parsed
 
-let run exprs = for ex in exprs do eval ex Map.empty
-
-run parsed
+eval parsed Map.empty
