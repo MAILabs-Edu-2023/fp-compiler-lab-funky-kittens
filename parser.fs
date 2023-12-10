@@ -215,7 +215,7 @@ let parse tokens =
 
 
 
-let text = System.IO.File.ReadAllText("test.fgo")
+let text = System.IO.File.ReadAllText("factorial.fgo")
 let tokens = tokenize (text |> Seq.toList)
 tokens
 let parsed = parse (tokens |> Seq.toList)
@@ -223,4 +223,3 @@ let parsed = parse (tokens |> Seq.toList)
 parsed
 
 eval parsed Map.empty
-
