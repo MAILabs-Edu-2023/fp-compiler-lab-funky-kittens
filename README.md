@@ -9,33 +9,77 @@ Yes, it **go**es against Go Way =)
 
 ## Syntax
 
-Vars
+Basic operations:
+```
++ - / * = > >= > => // arithmetic
+print // for strings
+printint // for integers
+```
+
+If-else
+```
+if (* condition *) {
+    * if branch *
+} else {
+    * else branch *
+}
+```
 
 Functions
-
-Etc
+```
+func * name * (* parameters *) {
+    * body *
+}
+```
 
 ## Code samples
 
-Hello World
+Hello World:
 ```
-...
+print "Hello!"
 ```
 
-Factorial
+Sum of numbers:
 ```
-...
+printint 1 + 2
+```
+
+Factorial:
+```
+func fact (x) {
+    if (x < 1) {
+        1
+    } else {
+        x * fact(x - 1)
+    }
+}
+
+printint fact(4)
+```
+
+And how is the factorial implemented on Go:
+```
+func fact(x int) int {
+	if x <= 1 {
+		return 1
+	}
+	return x * fact(x - 1)
+}
+
+func main() {
+	fmt.Println(fact(4))
+}
 ```
 
 ## Language Features
 
 We have implemented:
 
-* [x] Named variables (`let`)
+* [ ] Named variables (`let`)
 * [x] Recursion
 * [ ] Lazy evaluation
 * [x] Functions
-* [ ] Closures
+* [x] Closures
 * [ ] Library functions: File IO
 * [ ] Lists / Sequences
 * [ ] Library functions: Lists/Sequences
@@ -44,5 +88,5 @@ We have implemented:
 
 Name | Role in the project
 ------------------|---------------------
-Daniil Aksenov | ...
-Alena Vasileva | ...
+Daniil Aksenov | Text tokenization and other things
+Alena Vasileva | Token parsing and other things
