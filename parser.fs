@@ -32,11 +32,11 @@ let funof = function
 | "<=" -> (function [Int(a);Int(b)] -> if b<=a then Int(1) else Int(0))
 | "print" -> (function [expr.String(a)] -> printfn "%s" a; None)
 | "printint" -> (function [expr.Int(a)] -> printfn "%d" a; None)
-| "func" -> (function [expr.String(a)] -> Int(4))
+| _ -> (function [] -> None)
 
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
-| "print" | "printint" | "func" -> 1
+| "print" | "printint" | _ -> 1
 
 let rec eval exp env =
     match exp with
@@ -135,12 +135,39 @@ let tokenize text =
     tokenize' [] text
 
 let parse tokens = 
+    let rec parseExpr = function
+        | Action(var) :: Action(op) :: Action(func) :: Action(var2) :: Action(op2) :: Number(num) :: tail ->
+            App(
+                App(PFunc(op),Var(var)),
+                App(
+                    Var(func),
+                    App(
+                        App(PFunc(op2),Var(var2)),
+                        Int(num |> int)
+                    )
+                )
+            ), tail
+
+    let rec parseCond = function
+        | Action(func) :: Action(left) :: Action(cond) :: Number(right) :: Action(ifBranch) :: tail when func = "if" ->
+            let elseBranch, rest = parseExpr tail
+            Cond(
+                App(App(PFunc(cond),Var(left)),Int(right |> int)),
+                Var(ifBranch),
+                elseBranch
+            ), rest
+
     let rec parseMain = function
-        | Action(func) :: String(name) :: String(arg) :: String(lambda) :: Number(app) :: _ when func = "func" ->
-            LetRec(name,
-                Lam(arg,
-                    Var(lambda)),
-                App(Var(name),Int(app |> int)))
+        | Action(func) :: Action(name) :: Action(arg) :: tail when func = "func" ->
+            let cond, rest = parseCond tail
+            LetRec(
+                name,
+                Lam(
+                    arg,
+                    cond
+                ),
+                App(Var(name), parseMain rest)
+            )
         | Action(func) :: tail ->
             App(PFunc(func), parseMain tail)
         | Number(s) :: [] ->
@@ -151,6 +178,7 @@ let parse tokens =
             None
 
     parseMain tokens
+
 
 let text = System.IO.File.ReadAllText("test.fgo")
 let tokens = tokenize (text |> Seq.toList)
