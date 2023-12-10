@@ -1,1 +1,1 @@
-printint 1 + 3
+printint (1 + 3)
