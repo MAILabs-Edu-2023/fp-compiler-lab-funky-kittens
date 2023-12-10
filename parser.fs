@@ -135,15 +135,17 @@ let tokenize text =
 let parse tokens = 
     let rec parse' = function
         // | CloseSection :: rem -> acc, rem
-        | Token.Number(s) :: Action(func) :: Token.Number(s2) :: _ when func = "+" ->
-            expr.App(expr.App(expr.PFunc(func),expr.Int(s |> int)),expr.Int(s2 |> int))
-        | Action(func) :: Token.String(s2) :: _ when func = "print" ->
-            App(PFunc(func), expr.String(s2))
-        | Action(func) :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: _ when func = "printint" ->
-            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int)))
-        | Action(func) :: OpenBracket :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: CloseBracket :: _ when func = "printint" ->
-            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int)))
-       
+        | Token.Number(s) :: Action(func) :: Token.Number(s2) :: tail when func = "+" ->
+           App(App(expr.PFunc(func),expr.Int(s |> int)),expr.Int(s2 |> int)) :: parse' tail
+        | Action(func) :: Token.String(s2) :: tail when func = "print" ->
+            App(PFunc(func), expr.String(s2)) :: parse' tail
+        | Action(func) :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: tail  when func = "printint" ->
+            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parse' tail
+        | Action(func) :: OpenBracket :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: CloseBracket :: tail when func = "printint" ->
+            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parse' tail
+        | _ -> 
+            None :: []
+
         // | Action(func) :: t when func == "func" = 
         //     let fname = match List.head t with 
         //         | Action(fname) -> fname
@@ -155,9 +157,12 @@ let parse tokens =
     parse' tokens
 
 
-let text = System.IO.File.ReadAllText("factorial.fgo")
+let text = System.IO.File.ReadAllText("multiline.fgo")
 let tokens = tokenize (text |> Seq.toList)
+tokens
 let parsed = parse (tokens |> Seq.toList)
 parsed
 
-eval parsed Map.empty
+let run exprs = for ex in exprs do eval ex Map.empty
+
+run parsed
