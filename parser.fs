@@ -30,14 +30,13 @@ let funof = function
 | ">=" -> (function [Int(a);Int(b)] -> if b>=a then Int(1) else Int(0))
 | "<" -> (function [Int(a);Int(b)] -> if b<a then Int(1) else Int(0))
 | "<=" -> (function [Int(a);Int(b)] -> if b<=a then Int(1) else Int(0))
-| "print" -> (function  [expr.String(a)] -> printfn "%s" a; None)
-| "printint" -> (function  [expr.Int(a)] -> printfn "%d" a; None)
-| "func" -> (function  [String(a)] -> Var(a))
-| "return" -> (function  [Int(a)] -> Int(a))
+| "print" -> (function [expr.String(a)] -> printfn "%s" a; None)
+| "printint" -> (function [expr.Int(a)] -> printfn "%d" a; None)
+| "func" -> (function [expr.String(a)] -> Int(4))
 
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
-| "print" | "printint" | "func" | "return" -> 1
+| "print" | "printint" | "func" -> 1
 
 let rec eval exp env =
     match exp with
@@ -136,13 +135,12 @@ let tokenize text =
     tokenize' [] text
 
 let parse tokens = 
-    let rec parseFunction = function
-    | Action(func) :: Token.Number(x) :: CloseSection :: tail when func = "return" ->
-        x |> int, tail
-    | _ -> 
-        0, []
-
     let rec parseMain = function
+        | Action(func) :: String(name) :: String(arg) :: String(lambda) :: Number(app) :: _ when func = "func" ->
+            LetRec(name,
+                Lam(arg,
+                    Var(lambda)),
+                App(Var(name),Int(app |> int)))
         | Action(func) :: tail ->
             App(PFunc(func), parseMain tail)
         | Number(s) :: [] ->

@@ -1,1 +1,1 @@
-printint 1 + 2 + 3
+printint func "fact" "y" "y" 3
