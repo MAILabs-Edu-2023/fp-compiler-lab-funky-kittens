@@ -36,7 +36,7 @@ let funof = function
 
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
-| "print" | "printint" | _ -> 1
+| "print" | "printint" | "func" -> 1
 
 let predefFuncs = [
     "+";
@@ -52,7 +52,6 @@ let predefFuncs = [
     "printint";
     "func";
 ]
-
 
 let rec eval exp env =
     match exp with
@@ -213,6 +212,7 @@ let parse tokens =
 
     let res, o = parseSection tokens
     res
+
 
 
 let text = System.IO.File.ReadAllText("test.fgo")
