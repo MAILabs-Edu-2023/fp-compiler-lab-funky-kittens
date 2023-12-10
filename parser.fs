@@ -32,11 +32,11 @@ let funof = function
 | "<=" -> (function [Int(a);Int(b)] -> if a<=b then Int(1) else Int(0))
 | "print" -> (function [expr.String(a)] -> printfn "%s" a; None)
 | "printint" -> (function [expr.Int(a)] -> printfn "%d" a; None)
-| "func" -> (function [expr.String(a)] -> Int(4))
+| _ -> (function [] -> None)
 
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
-| "print" | "printint" | "func" -> 1
+| "print" | "printint" | _ -> 1
 
 let predefFuncs = [
     "+";
@@ -213,6 +213,7 @@ let parse tokens =
 
     let res, o = parseSection tokens
     res
+
 
 let text = System.IO.File.ReadAllText("test.fgo")
 let tokens = tokenize (text |> Seq.toList)
