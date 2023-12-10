@@ -31,11 +31,14 @@ let funof = function
 | "<=" -> (function [Int(a);Int(b)] -> if b<=a then Int(1) else Int(0))
 | "print" -> (function  [expr.String(a)] -> printfn "%s" a; None)
 | "printint" -> (function  [expr.Int(a)] -> printfn "%d" a; None)
+| "func" -> (function  [String(a)] -> Var(a))
+| "return" -> (function  [Int(a)] -> Int(a))
+
 
 
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
-| "print" | "printint" -> 1
+| "print" | "printint" | "func" | "return" -> 1
 
 let rec eval exp env =
     match exp with
@@ -133,31 +136,36 @@ let tokenize text =
     tokenize' [] text
 
 let parse tokens = 
-    let rec parse' = function
-        // | CloseSection :: rem -> acc, rem
+    let rec parseFunction = function
+    | Action(func) :: Token.Number(x) :: CloseSection :: _ when func = "return" ->
+        x |> int
+    | _ -> 
+        0
+
+    let rec parseMain = function
         | Token.Number(s) :: Action(func) :: Token.Number(s2) :: tail when func = "+" ->
-           App(App(expr.PFunc(func),expr.Int(s |> int)),expr.Int(s2 |> int)) :: parse' tail
+           App(App(expr.PFunc(func),expr.Int(s |> int)),expr.Int(s2 |> int)) :: parseMain tail
         | Action(func) :: Token.String(s2) :: tail when func = "print" ->
-            App(PFunc(func), expr.String(s2)) :: parse' tail
+            App(PFunc(func), expr.String(s2)) :: parseMain tail
         | Action(func) :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: tail  when func = "printint" ->
-            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parse' tail
+            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parseMain tail
         | Action(func) :: OpenBracket :: Token.Number(s) :: Action(func2) :: Token.Number(s2) :: CloseBracket :: tail when func = "printint" ->
-            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parse' tail
+            App(PFunc(func), expr.App(expr.App(expr.PFunc(func2),expr.Int(s |> int)),expr.Int(s2 |> int))) :: parseMain tail
+        | Action(func) :: String(fname) :: OpenSection :: body when func = "func" ->
+            // let fname = match List.head t with 
+            //     | Action(fname) -> fname
+            //     | _ -> raise("aaaa")
+            // let t' = List.tail t
+            // if List.head t' != Token.OpenBracket then raise("aaaaa")
+            let t = parseFunction body
+            App(PFunc("print"), expr.String(t |> string)) :: []
         | _ -> 
             None :: []
 
-        // | Action(func) :: t when func == "func" = 
-        //     let fname = match List.head t with 
-        //         | Action(fname) -> fname
-        //         | _ -> raise("aaaa")
-        //     let t' = List.tail t
-        //     if List.head t' != Token.OpenBracket then raise("aaaaa") 
-        // | _ -> raise("aaaaa")
-
-    parse' tokens
+    parseMain tokens
 
 
-let text = System.IO.File.ReadAllText("multiline.fgo")
+let text = System.IO.File.ReadAllText("test.fgo")
 let tokens = tokenize (text |> Seq.toList)
 tokens
 let parsed = parse (tokens |> Seq.toList)
