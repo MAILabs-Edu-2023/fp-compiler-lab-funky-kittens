@@ -60,14 +60,14 @@ printint fact(4)
 And how is the factorial implemented on Go:
 ```
 func fact(x int) int {
-	if x <= 1 {
-		return 1
-	}
-	return x * fact(x - 1)
+    if x <= 1 {
+        return 1
+    }
+    return x * fact(x - 1)
 }
 
 func main() {
-	fmt.Println(fact(4))
+    fmt.Println(fact(4))
 }
 ```
 
