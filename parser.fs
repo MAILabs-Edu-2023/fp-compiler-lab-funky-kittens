@@ -21,22 +21,37 @@ and
   env = Map<id,expr>
 
 let funof = function
-| "+" -> (function [Int(a);Int(b)] -> Int(b+a))
-| "-" -> (function [Int(a);Int(b)] -> Int(b-a))
-| "*" -> (function [Int(a);Int(b)] -> Int(b*a))
-| "/" -> (function [Int(a);Int(b)] -> Int(b/a))
-| "=" -> (function [Int(a);Int(b)] -> if b=a then Int(1) else Int(0))
-| ">" -> (function [Int(a);Int(b)] -> if b>a then Int(1) else Int(0))
-| ">=" -> (function [Int(a);Int(b)] -> if b>=a then Int(1) else Int(0))
-| "<" -> (function [Int(a);Int(b)] -> if b<a then Int(1) else Int(0))
-| "<=" -> (function [Int(a);Int(b)] -> if b<=a then Int(1) else Int(0))
+| "+" -> (function [Int(a);Int(b)] -> Int(a+b))
+| "-" -> (function [Int(a);Int(b)] -> Int(a-b))
+| "*" -> (function [Int(a);Int(b)] -> Int(a*b))
+| "/" -> (function [Int(a);Int(b)] -> Int(a/b))
+| "=" -> (function [Int(a);Int(b)] -> if a=b then Int(1) else Int(0))
+| ">" -> (function [Int(a);Int(b)] -> if a>b then Int(1) else Int(0))
+| ">=" -> (function [Int(a);Int(b)] -> if a>=b then Int(1) else Int(0))
+| "<" -> (function [Int(a);Int(b)] -> if a<b then Int(1) else Int(0))
+| "<=" -> (function [Int(a);Int(b)] -> if a<=b then Int(1) else Int(0))
 | "print" -> (function [expr.String(a)] -> printfn "%s" a; None)
 | "printint" -> (function [expr.Int(a)] -> printfn "%d" a; None)
 | _ -> (function [] -> None)
 
 let funpars = function
 | "+" | "-" | "*" | "/" | "=" | ">" | "<" | "<=" | ">=" -> 2
-| "print" | "printint" | _ -> 1
+| "print" | "printint" | "func" -> 1
+
+let predefFuncs = [
+    "+";
+    "-";
+    "*";
+    "/";
+    "=";
+    ">";
+    ">";
+    "<";
+    "<=";
+    "print";
+    "printint";
+    "func";
+]
 
 let rec eval exp env =
     match exp with
@@ -135,55 +150,77 @@ let tokenize text =
     tokenize' [] text
 
 let parse tokens = 
-    let rec parseExpr = function
-        | Action(var) :: Action(op) :: Action(func) :: Action(var2) :: Action(op2) :: Number(num) :: tail ->
-            App(
-                App(PFunc(op),Var(var)),
-                App(
-                    Var(func),
-                    App(
-                        App(PFunc(op2),Var(var2)),
-                        Int(num |> int)
-                    )
-                )
-            ), tail
+    let rec parseSection = function
+        | CloseSection :: tail ->
+            None, tail
+        
+        | CloseBracket :: tail ->
+            None, tail
+        
+        | Action(iffunc) :: OpenBracket :: tail  when iffunc = "if" ->
+            let condApp, rem = parseSection tail
+            let trueApp, remNoTrue = parseSection (List.tail rem)
+            let falseApp, remNoIf = parseSection (List.tail (List.tail remNoTrue))
+            
+            Cond(condApp, trueApp, falseApp), remNoIf
 
-    let rec parseCond = function
-        | Action(func) :: Action(left) :: Action(cond) :: Number(right) :: Action(ifBranch) :: tail when func = "if" ->
-            let elseBranch, rest = parseExpr tail
-            Cond(
-                App(App(PFunc(cond),Var(left)),Int(right |> int)),
-                Var(ifBranch),
-                elseBranch
-            ), rest
+        | Action(func) :: Action(name) :: OpenBracket :: Action(x) :: CloseBracket :: OpenSection :: tail when func = "func" ->
+            let lambda, afterSection = parseSection tail
+            let other, rem = parseSection (List.tail afterSection)
 
-    let rec parseMain = function
-        | Action(func) :: Action(name) :: Action(arg) :: tail when func = "func" ->
-            let cond, rest = parseCond tail
-            LetRec(
-                name,
-                Lam(
-                    arg,
-                    cond
-                ),
-                App(Var(name), parseMain rest)
-            )
+            LetRec(name, Lam(x, lambda), other), rem
+       
+        | Action(func) :: OpenBracket ::  tail ->
+            let x, rem = parseSection tail
+            let app, other = parseSection rem
+            let var = Var(func)
+            match app with
+                | None -> App(var, x), other
+                | _ -> App(var, x), other // TODO
+
+        | Action(func) :: tail when List.contains func predefFuncs-> 
+            let app, rem = parseSection tail
+            App(PFunc(func), app), rem
+
         | Action(func) :: tail ->
-            App(PFunc(func), parseMain tail)
-        | Number(s) :: [] ->
-            Int(s |> int)
+            let app, rem = parseSection tail
+            let var = Var(func)
+            match app with
+                | None -> var, rem
+                | _ -> App(app, var), rem
+        
         | Number(s) :: tail ->
-            App(parseMain tail, Int(s |> int))
-        | _ -> 
-            None
+            let app, rem = parseSection tail
+            let number = Int(s |> int)
+            match app with
+                | None -> number, rem
+                | _ -> App(app, number), rem
+        
+        | Token.String(s) :: tail ->  
+            let app, rem = parseSection tail
+            let str = expr.String(s)
+            match app with
+                | None -> str, rem
+                | _ -> App(app, str), rem
 
-    parseMain tokens
+        | a :: tail -> 
+            printfn "%A" a
+            None, tail
+
+        | [] -> 
+            None, []
+
+    let res, o = parseSection tokens
+    res
+
 
 
 let text = System.IO.File.ReadAllText("test.fgo")
 let tokens = tokenize (text |> Seq.toList)
 tokens
 let parsed = parse (tokens |> Seq.toList)
+
 parsed
 
 eval parsed Map.empty
+

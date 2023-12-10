@@ -1,6 +1,9 @@
-printint
-    func fact x 
-        if x <= 1 
-            x 
-            x * fact x - 1
-        6
+func fact (x) {
+    if (x < 1) {
+        1
+    } else {
+        x * fact(x - 1)
+    }
+}
+
+printint fact(4)
